@@ -25,6 +25,14 @@
  */
 package com.samsung.sec.dexter.executor.cli;
 
+import java.io.File;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.TimeUnit;
+
+import org.apache.commons.cli.HelpFormatter;
+import org.apache.log4j.Logger;
+
 import com.google.common.base.Stopwatch;
 import com.google.common.base.Strings;
 import com.samsung.sec.dexter.core.analyzer.AnalysisConfig;
@@ -38,17 +46,13 @@ import com.samsung.sec.dexter.core.exception.DexterRuntimeException;
 import com.samsung.sec.dexter.core.plugin.IDexterPluginInitializer;
 import com.samsung.sec.dexter.core.plugin.IDexterPluginManager;
 import com.samsung.sec.dexter.core.util.DexterClient;
+import com.samsung.sec.dexter.core.util.DexterServerConfig;
 import com.samsung.sec.dexter.core.util.EmptyDexterClient;
 import com.samsung.sec.dexter.core.util.IDexterClient;
+import com.samsung.sec.dexter.core.util.IDexterWebResource;
+import com.samsung.sec.dexter.core.util.JerseyDexterWebResource;
 import com.samsung.sec.dexter.executor.CLIPluginInitializer;
 import com.samsung.sec.dexter.executor.DexterAnalyzer;
-
-import java.io.File;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.concurrent.TimeUnit;
-
-import org.apache.log4j.Logger;
 
 public class Main {
     private ICLILog cliLog = new CLILog(System.out);
@@ -62,7 +66,7 @@ public class Main {
         Main cliMain = new Main();
 
         try {
-            final IDexterCLIOption cliOption = new DexterCLIOption(args);
+            final IDexterCLIOption cliOption = new DexterCLIOption(args, new HelpFormatter());
 
             switch (cliOption.getCommandMode()) {
                 case CREATE_ACCOUNT:
@@ -106,9 +110,14 @@ public class Main {
         if (cliOption.isStandAloneMode()) {
             return new EmptyDexterClient();
         } else {
-            return new DexterClient.DexterClientBuilder(cliOption.getUserId(), cliOption.getUserPassword())
-                    .dexterServerIp(cliOption.getServerHostIp()).dexterServerPort(cliOption.getServerPort())
-                    .build();
+        	IDexterWebResource webResource = new JerseyDexterWebResource(
+        			new DexterServerConfig(
+        					cliOption.getUserId(), 
+	    					cliOption.getUserPassword(),
+	    					cliOption.getServerHostIp(), 
+	    					cliOption.getServerPort()));
+        	
+            return new DexterClient(webResource);
         }
     }
 
@@ -119,7 +128,7 @@ public class Main {
 
         loginOrCreateAccount(client, cliOption);
 
-        final AnalysisConfig baseAnalysisConfig = createBaseAnalysisConfig(client, cliOption, configFile);
+        final AnalysisConfig baseAnalysisConfig = createBaseAnalysisConfig(cliOption, configFile);
         final IAnalysisResultHandler cliAnalysisResultHandler = createCLIAnalysisResultHandler(client,
                 cliOption);
         final IDexterPluginManager pluginManager = loadDexterPlugins(client, cliOption);
@@ -157,7 +166,7 @@ public class Main {
         return new CLIAnalysisResultHandler(client.getDexterWebUrl(), cliOption, cliLog);
     }
 
-    private AnalysisConfig createBaseAnalysisConfig(final IDexterClient client, final IDexterCLIOption cliOption,
+    private AnalysisConfig createBaseAnalysisConfig(final IDexterCLIOption cliOption,
             final IDexterConfigFile configFile) {
         initDexterConfig(cliOption, configFile);
 
